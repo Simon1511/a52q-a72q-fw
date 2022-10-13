@@ -25,12 +25,11 @@ jobs:
 
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: true
 
     - name: Compare latest version with current version
-      id: check
       run: |
        need_update=0
        latest=`curl --retry 5 --retry-delay 5 http://fota-cloud-dn.ospserver.net/firmware/${{ matrix.region }}/${{ matrix.model }}/version.xml | grep latest | sed 's/^[^>]*>//' | sed 's/<.*//'`
@@ -38,74 +37,73 @@ jobs:
        latest_modem=`echo $latest | cut -d'/' -f3`
        current=`cat current.${{ matrix.model }}` || need_update=1
        [[ $latest != $current ]] && need_update=1
-       echo ::set-output name=latest_version::$latest
-       echo ::set-output name=latest_shortversion::$latest_short
-       echo ::set-output name=latest_modemversion::$latest_modem
-       echo ::set-output name=need_update::$need_update
+       echo "latest_version=$latest" >> $GITHUB_ENV
+       echo "latest_shortversion=$latest_short" >> $GITHUB_ENV
+       echo "latest_modemversion=$latest_modem" >> $GITHUB_ENV
+       echo "need_update=$need_update" >> $GITHUB_ENV
 
     - name: Use Node.js 15
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       uses: actions/setup-node@v1
       with:
         node-version: 15
 
     - name: Install dependencies
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       run: sudo wget -O /usr/bin/samfirm https://github.com/DavidArsene/samfirm.js/releases/download/v0.3.0/samfirm.js && sudo chmod +x /usr/bin/samfirm
 
     - name: Fetch firmware
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       run: samfirm -m ${{ matrix.model }} -r ${{ matrix.region }}
 
     - name: Get path of files
-      if: steps.check.outputs.need_update == 1
-      id: files
+      if: env.need_update == 1
       run: |
-       echo ::set-output name=ap::`find -name AP*`
-       echo ::set-output name=bl::`find -name BL*`
-       echo ::set-output name=cp::`find -name CP*`
+       echo "ap_tar=`find -name AP*`" >> $GITHUB_ENV
+       echo "bl_tar=`find -name BL*`" >> $GITHUB_ENV
+       echo "cp_tar=`find -name CP*`" >> $GITHUB_ENV
 
     - name: Check contents of downloaded firmware
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       run: |
-       tar tvf ${{ steps.files.outputs.ap }}
-       tar tvf ${{ steps.files.outputs.bl }}
-       tar tvf ${{ steps.files.outputs.cp }} || true
+       tar tvf ${{ env.ap_tar }}
+       tar tvf ${{ env.bl_tar }}
+       tar tvf ${{ env.cp_tar }} || true
 
     - name: Remove unwanted files from AP and BL
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       run: |
-       tar vf ${{ steps.files.outputs.ap }} --delete boot.img.lz4 dtbo.img.lz4 recovery.img.lz4 super.img.lz4 userdata.img.lz4 vbmeta.img.lz4 vbmeta_system.img.lz4 meta-data
-       md5sum ${{ steps.files.outputs.ap }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ steps.files.outputs.ap }}
-       tar vf ${{ steps.files.outputs.bl }} --delete vbmeta.img.lz4
-       md5sum ${{ steps.files.outputs.bl }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ steps.files.outputs.bl }}
+       tar vf ${{ env.ap_tar }} --delete boot.img.lz4 dtbo.img.lz4 recovery.img.lz4 super.img.lz4 userdata.img.lz4 vbmeta.img.lz4 vbmeta_system.img.lz4 meta-data
+       md5sum ${{ env.ap_tar }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ env.ap_tar }}
+       tar vf ${{ env.bl_tar }} --delete vbmeta.img.lz4
+       md5sum ${{ env.bl_tar }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ env.bl_tar }}
 
     - name: Update current version
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       run: |
        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
        git config --local user.name "github-actions[bot]"
        git pull origin ${{github.ref}} --ff-only
-       echo ${{ steps.check.outputs.latest_version }} > current.${{ matrix.model }}
+       echo ${{ env.latest_version }} > current.${{ matrix.model }}
        git add current.${{ matrix.model }}
-       git commit -m "${{ matrix.model }}: ${{ steps.check.outputs.latest_version }}"
-       git tag ${{ steps.check.outputs.latest_shortversion }}
+       git commit -m "${{ matrix.model }}: ${{ env.latest_version }}"
+       git tag ${{ env.latest_shortversion }}
 
     - name: Push changes to repo
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       uses: ad-m/github-push-action@master
       with:
        tags: true
        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload release assets
-      if: steps.check.outputs.need_update == 1
+      if: env.need_update == 1
       uses: softprops/action-gh-release@v1
       env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-       tag_name: ${{ steps.check.outputs.latest_shortversion }}
+       tag_name: ${{ env.latest_shortversion }}
        files: |
-        ${{ steps.files.outputs.ap }}
-        ${{ steps.files.outputs.bl }}
-        ${{ steps.files.outputs.cp }}
+        ${{ env.ap_tar }}
+        ${{ env.bl_tar }}
+        ${{ env.cp_tar }}
