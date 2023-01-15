@@ -14,16 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - model: "SM-T720"
-            region: "BTU"
-          - model: "SM-T725"
-            region: "BTU"
-          - model: "SM-T725C"
-            region: "CHC"
-          - model: "SM-T725N"
-            region: "KOO"
-          - model: "SM-T727"
-            region: "TUR"
+          - model: "SM-A525F"
+            region: "EUX"
+          - model: "SM-A525M"
+            region: "SAM"
+          - model: "SM-A725F"
+            region: "DBT"
+          - model: "SM-A725M"
+            region: "COO"
 
     steps:
     - name: Checkout repo
@@ -77,7 +75,7 @@ jobs:
     - name: Remove unwanted files from AP and BL
       if: steps.check.outputs.need_update == 1
       run: |
-       tar vf ${{ steps.files.outputs.ap }} --delete boot.img.lz4 recovery.img.lz4 system.img.ext4.lz4 dtbo.img.lz4 vendor.img.ext4.lz4 persist.img.ext4.lz4 userdata.img.ext4.lz4 vbmeta.img.lz4 meta-data
+       tar vf ${{ steps.files.outputs.ap }} --delete boot.img.lz4 dtbo.img.lz4 recovery.img.lz4 super.img.lz4 userdata.img.lz4 vbmeta.img.lz4 vbmeta_system.img.lz4 meta-data
        md5sum ${{ steps.files.outputs.ap }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ steps.files.outputs.ap }}
        tar vf ${{ steps.files.outputs.bl }} --delete vbmeta.img.lz4
        md5sum ${{ steps.files.outputs.bl }} | sed "s/  .*\//  /;s/\.md5$//" >> ${{ steps.files.outputs.bl }}
