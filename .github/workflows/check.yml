@@ -16,6 +16,8 @@ jobs:
         include:
           - model: "SM-A525F"
             region: "EUX"
+          - model: "SM-A525F"
+            region: "SER"
           - model: "SM-A525M"
             region: "SAM"
           - model: "SM-A725F"
