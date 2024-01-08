@@ -22,6 +22,8 @@ jobs:
             region: "SAM"
           - model: "SM-A725F"
             region: "DBT"
+          - model: "SM-A725F"
+            region: "SER"
           - model: "SM-A725M"
             region: "COO"
 
